@@ -134,11 +134,30 @@ def update_dns():
     Domain name and hosted zone are pre-configured.
     """
     try:
-        # Get plain text IP address from request body
-        ip_address = request.get_data(as_text=True).strip()
+        # Get request data - support both RouterOS format and plain IP format
+        request_data = request.get_data(as_text=True).strip()
         
-        if not ip_address:
-            return jsonify({'error': 'No IP address provided'}), 400
+        if not request_data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Parse data - RouterOS sends "IP PASSWORD" format
+        data_parts = request_data.split()
+        
+        if len(data_parts) == 2:
+            # RouterOS format: "IP PASSWORD"
+            ip_address = data_parts[0]
+            password = data_parts[1]
+            
+            # Set the password in request headers for validation
+            request.headers = request.headers.copy()
+            request.headers['Authorization'] = password
+            
+        elif len(data_parts) == 1:
+            # Plain IP format (existing behavior)
+            ip_address = data_parts[0]
+            password = None
+        else:
+            return jsonify({'error': 'Invalid data format. Expected "IP PASSWORD" or just "IP"'}), 400
         
         # Validate IP address format (basic validation)
         if not is_valid_ip(ip_address):

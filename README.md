@@ -239,10 +239,17 @@ The service will start on `http://0.0.0.0:5000` by default.
 #### Update DNS A Record
 **POST** `/update-dns`
 
-**Request Body:** Plain text IP address
-```
-192.168.1.100
-```
+**Request Body:** Plain text data in one of these formats:
+
+1. **Plain IP address:**
+   ```
+   192.168.1.100
+   ```
+
+2. **RouterOS format (IP + Password):**
+   ```
+   192.168.1.100 your_password
+   ```
 
 **Success Response:**
 ```json
@@ -256,7 +263,7 @@ The service will start on `http://0.0.0.0:5000` by default.
 **Error Response:**
 ```json
 {
-    "error": "No IP address provided"
+    "error": "No data provided"
 }
 ```
 
@@ -275,11 +282,16 @@ The service will start on `http://0.0.0.0:5000` by default.
 
 ### Using curl
 ```bash
-# Direct access (if running without nginx)
+# Method 1: Separate headers and body
 curl -X POST http://localhost:5000/update-dns \
   -H "Authorization: your_password" \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10"
+
+# Method 2: RouterOS format (IP + password in body)
+curl -X POST http://localhost:5000/update-dns \
+  -H "Content-Type: text/plain" \
+  -d "203.0.113.10 your_password"
 
 # Through nginx reverse proxy (with SSL)
 curl -X POST https://your-domain.com/update-dns \
@@ -287,11 +299,10 @@ curl -X POST https://your-domain.com/update-dns \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10"
 
-# Through nginx reverse proxy (HTTP only)
-curl -X POST http://your-domain.com/update-dns \
-  -H "Authorization: your_password" \
+# RouterOS format through nginx
+curl -X POST https://your-domain.com/update-dns \
   -H "Content-Type: text/plain" \
-  -d "203.0.113.10"
+  -d "203.0.113.10 your_password"
 
 # Using query parameter for authentication
 curl -X POST "http://localhost:5000/update-dns?password=your_password" \
@@ -309,13 +320,19 @@ curl http://your-domain.com/health
 ```python
 import requests
 
-# Update DNS A record with authentication
+# Method 1: Separate headers and body
 ip_address = "203.0.113.10"
 headers = {
     'Content-Type': 'text/plain',
     'Authorization': 'your_password'
 }
 response = requests.post('http://localhost:5000/update-dns', data=ip_address, headers=headers)
+print(response.json())
+
+# Method 2: RouterOS format (IP + password in body)
+routeros_data = "203.0.113.10 your_password"
+headers = {'Content-Type': 'text/plain'}
+response = requests.post('http://localhost:5000/update-dns', data=routeros_data, headers=headers)
 print(response.json())
 
 # Alternative: Using query parameter for authentication
@@ -337,6 +354,27 @@ The test script will:
 - Prompt for an IP address (or use demo value)
 - Test the DNS update functionality
 - Display the results
+
+### RouterOS Integration
+
+The service supports RouterOS scripts that send data in the format `"IP PASSWORD"`:
+
+**RouterOS Script Example:**
+```routeros
+# Get public IP
+:local publicIP [/tool fetch url="https://api.ipify.org" output=text]
+
+# Update DNS
+:local url "https://your-domain.com/update-dns"
+:local password "your_password"
+/tool fetch url=($url) http-method=post http-data=("$publicIP $password") output=none
+```
+
+**Features:**
+- Automatically parses RouterOS format: `"IP PASSWORD"`
+- Falls back to plain IP format for backward compatibility
+- Supports all authentication methods (headers, query parameters, or embedded in body)
+- Maintains security with password validation
 
 ### Using the service manager (if installed as systemd service)
 ```bash

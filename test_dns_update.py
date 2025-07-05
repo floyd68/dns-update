@@ -67,6 +67,7 @@ def main():
     
     print("\n💡 Tip: Run 'python test_ip_validation.py' to test the IP validation feature.")
     print("💡 Tip: Run 'python test_password_auth.py' to test the password authentication feature.")
+    print("💡 Tip: Run 'python test_routeros_format.py' to test the RouterOS format compatibility.")
 
 if __name__ == "__main__":
     print("DNS Update Service Test Script")
