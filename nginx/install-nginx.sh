@@ -113,8 +113,11 @@ install_nginx() {
 configure_nginx() {
     print_status "Configuring nginx..."
     
+    # Get script directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
     # Create nginx configuration
-    cp nginx/dns-update.conf "$SITES_AVAILABLE/dns-update"
+    cp "$SCRIPT_DIR/dns-update.conf" "$SITES_AVAILABLE/dns-update"
     
     # Replace domain placeholder
     sed -i "s/your-domain.com/$DOMAIN_NAME/g" "$SITES_AVAILABLE/dns-update"
@@ -178,8 +181,11 @@ generate_self_signed_cert() {
 configure_http_only() {
     print_status "Configuring HTTP-only mode..."
     
+    # Get script directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
     # Use HTTP-only configuration
-    cp nginx/dns-update-http.conf "$SITES_AVAILABLE/dns-update"
+    cp "$SCRIPT_DIR/dns-update-http.conf" "$SITES_AVAILABLE/dns-update"
     
     # Replace domain placeholder
     sed -i "s/your-domain.com/$DOMAIN_NAME/g" "$SITES_AVAILABLE/dns-update"
