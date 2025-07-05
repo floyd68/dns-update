@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 import logging
 import re
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from config import Config
 
 # Configure logging
@@ -138,7 +138,7 @@ def log_dns_update(ip_address, requester_ip, domain_name, status, change_id=None
     """
     try:
         log_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'ip_address': ip_address,
             'requester_ip': requester_ip,
             'domain_name': domain_name,
@@ -179,7 +179,7 @@ def log_dns_update(ip_address, requester_ip, domain_name, status, change_id=None
         # Log to stderr as final fallback
         try:
             fallback_entry = {
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'ip_address': ip_address,
                 'requester_ip': requester_ip,
                 'domain_name': domain_name,
@@ -394,11 +394,11 @@ def api_logs():
                 continue
             elif filter_type == 'today':
                 log_date = datetime.fromisoformat(log.get('timestamp', '')).date()
-                if log_date != datetime.utcnow().date():
+                if log_date != datetime.now(timezone.utc).date():
                     continue
             elif filter_type == 'week':
                 log_date = datetime.fromisoformat(log.get('timestamp', ''))
-                if log_date < datetime.utcnow() - timedelta(days=7):
+                if log_date < datetime.now(timezone.utc) - timedelta(days=7):
                     continue
             
             # Search filter
@@ -494,7 +494,7 @@ def api_stats():
         unique_ips = len(set(log.get('ip_address') for log in logs if log.get('ip_address')))
         
         # Get recent activity (last 24 hours)
-        yesterday = datetime.utcnow() - timedelta(days=1)
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
         recent_updates = sum(1 for log in logs 
                            if datetime.fromisoformat(log.get('timestamp', '')) >= yesterday)
         
