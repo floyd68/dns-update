@@ -62,6 +62,31 @@ get_email() {
     fi
 }
 
+get_protocol_choice() {
+    echo ""
+    echo "Protocol Options:"
+    echo "1. HTTPS with Let's Encrypt SSL (recommended for production)"
+    echo "2. HTTPS with self-signed SSL (for testing/internal use)"
+    echo "3. HTTP only (no SSL, for internal networks)"
+    read -p "Choose protocol (1, 2, or 3): " PROTOCOL_CHOICE
+    
+    case $PROTOCOL_CHOICE in
+        1)
+            PROTOCOL_MODE="lets_encrypt"
+            ;;
+        2)
+            PROTOCOL_MODE="self_signed"
+            ;;
+        3)
+            PROTOCOL_MODE="http_only"
+            ;;
+        *)
+            print_error "Invalid choice"
+            exit 1
+            ;;
+    esac
+}
+
 # Function to install nginx
 install_nginx() {
     print_status "Installing nginx..."
@@ -271,21 +296,27 @@ EOF
         echo "Configuration:"
         echo "  - Domain: $DOMAIN_NAME"
         
-        # Determine SSL mode
-        if [ -f "$SITES_AVAILABLE/dns-update" ] && grep -q "ssl_certificate" "$SITES_AVAILABLE/dns-update"; then
-            if [ -f "$SSL_DIR/certs/dns-update.crt" ]; then
-                SSL_MODE="Self-signed SSL"
-                TEST_URL="https://$DOMAIN_NAME"
-            else
+        # Determine SSL mode based on protocol choice
+        case $PROTOCOL_MODE in
+            "lets_encrypt")
                 SSL_MODE="Let's Encrypt SSL"
                 TEST_URL="https://$DOMAIN_NAME"
-            fi
-        else
-            SSL_MODE="HTTP only"
-            TEST_URL="http://$DOMAIN_NAME"
-        fi
+                ;;
+            "self_signed")
+                SSL_MODE="Self-signed SSL"
+                TEST_URL="https://$DOMAIN_NAME"
+                ;;
+            "http_only")
+                SSL_MODE="HTTP only"
+                TEST_URL="http://$DOMAIN_NAME"
+                ;;
+            *)
+                SSL_MODE="Unknown"
+                TEST_URL="http://$DOMAIN_NAME"
+                ;;
+        esac
         
-        echo "  - SSL Mode: $SSL_MODE"
+        echo "  - Protocol Mode: $SSL_MODE"
         echo "  - Nginx Config: $SITES_AVAILABLE/dns-update"
         echo "  - Logs: /var/log/nginx/dns-update-*.log"
         echo ""
@@ -302,11 +333,17 @@ EOF
         echo -e "${YELLOW}Important:${NC}"
         echo "1. Ensure your DNS service is running on port 5000"
         echo "2. Update your domain's DNS A record to point to this server"
-        if [ "$SSL_MODE" != "HTTP only" ]; then
-            echo "3. Consider setting up automatic SSL certificate renewal"
-        else
-            echo "3. HTTP-only mode is not recommended for production use"
-        fi
+        case $PROTOCOL_MODE in
+            "lets_encrypt")
+                echo "3. Let's Encrypt certificates auto-renew, but monitor renewal logs"
+                ;;
+            "self_signed")
+                echo "3. Self-signed certificates are for testing only"
+                ;;
+            "http_only")
+                echo "3. HTTP-only mode is not recommended for production use"
+                ;;
+        esac
         echo ""
     }
 
@@ -320,34 +357,31 @@ main() {
     
     # Get user input
     get_domain_name
-    get_email
+    get_protocol_choice
+    
+    # Get email only if SSL is needed
+    if [ "$PROTOCOL_MODE" != "http_only" ]; then
+        get_email
+    fi
     
     # Install nginx
     install_nginx
     
-    # Configure nginx
-    configure_nginx
-    
-    # Choose SSL certificate type
-    echo ""
-    echo "SSL Certificate Options:"
-    echo "1. Let's Encrypt (recommended, requires public domain)"
-    echo "2. Self-signed (for testing/internal use)"
-    echo "3. HTTP only (no SSL, for internal networks)"
-    read -p "Choose SSL certificate type (1, 2, or 3): " ssl_choice
-    
-    case $ssl_choice in
-        1)
+    # Configure nginx based on protocol choice
+    case $PROTOCOL_MODE in
+        "lets_encrypt")
+            configure_nginx
             obtain_lets_encrypt_cert
             ;;
-        2)
+        "self_signed")
+            configure_nginx
             generate_self_signed_cert
             ;;
-        3)
+        "http_only")
             configure_http_only
             ;;
         *)
-            print_error "Invalid choice"
+            print_error "Invalid protocol mode"
             exit 1
             ;;
     esac
