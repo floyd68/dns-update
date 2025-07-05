@@ -70,6 +70,8 @@ cp config.py $INSTALL_DIR/
 cp requirements.txt $INSTALL_DIR/
 cp start.py $INSTALL_DIR/
 cp test_dns_update.py $INSTALL_DIR/
+cp test_ip_validation.py $INSTALL_DIR/
+cp test_password_auth.py $INSTALL_DIR/
 
 # Set proper permissions
 chown -R $SERVICE_USER:$SERVICE_GROUP $INSTALL_DIR
@@ -130,7 +132,7 @@ chmod 600 $ENV_FILE
 
 # Install systemd service file
 print_status "Installing systemd service..."
-cp dns-update.service $SERVICE_FILE
+cp $(dirname $0)/dns-update.service $SERVICE_FILE
 
 # Reload systemd and enable service
 print_status "Reloading systemd and enabling service..."
