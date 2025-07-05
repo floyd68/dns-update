@@ -10,6 +10,10 @@ A Flask-based web service that updates Route53 DNS A records via HTTP POST reque
 - IP address validation
 - Health check endpoint
 - Comprehensive error handling and logging
+- **NEW: DNS update logging with JSON log file**
+- **NEW: Modern web interface for viewing logs**
+- **NEW: Real-time statistics and filtering**
+- **NEW: API endpoints for programmatic log access**
 - Docker support for easy deployment
 
 ## Prerequisites
@@ -31,6 +35,11 @@ A Flask-based web service that updates Route53 DNS A records via HTTP POST reque
 3. Install dependencies:
    ```bash
    pip install -r requirements.txt
+   ```
+
+4. (Optional) View logs from terminal:
+   ```bash
+   python view_logs.py
    ```
 
 ## Configuration
@@ -161,6 +170,8 @@ The service accepts the password in multiple ways:
      -d "192.168.1.100"
    ```
 
+
+
 ## Usage
 
 ### Starting the Service
@@ -278,6 +289,78 @@ The service will start on `http://0.0.0.0:5000` by default.
 }
 ```
 
+#### DNS Logs Web Interface
+**GET** `/logs`
+
+**Description:** Modern web interface for viewing DNS update logs with real-time statistics, filtering, and search capabilities.
+
+**Features:**
+- Real-time statistics dashboard
+- Search by IP address, domain, or error message
+- Filter by status (success/error) or time period
+- Pagination support
+- Mobile-responsive design
+- Auto-refresh every 30 seconds
+
+#### DNS Logs API
+**GET** `/api/logs`
+
+**Query Parameters:**
+- `page`: Page number (default: 1)
+- `filter`: Filter type - `all`, `success`, `error`, `today`, `week` (default: all)
+- `search`: Search term for IP, domain, or error message
+
+**Response:**
+```json
+{
+    "success": true,
+    "logs": [
+        {
+            "id": 1,
+            "ip_address": "203.0.113.10",
+            "requester_ip": "192.168.1.100",
+            "domain_name": "api.example.com",
+            "status": "success",
+            "change_id": "C1234567890ABC",
+            "error_message": null,
+            "auth_method": "header",
+            "user_agent": "curl/7.68.0",
+            "created_at": "2024-01-15T10:30:00"
+        }
+    ],
+    "stats": {
+        "total": 150,
+        "successful": 145,
+        "failed": 5,
+        "unique_ips": 12
+    },
+    "current_page": 1,
+    "total_pages": 3,
+    "total_count": 150
+}
+```
+
+#### DNS Statistics API
+**GET** `/api/stats`
+
+**Response:**
+```json
+{
+    "success": true,
+    "stats": {
+        "total": 150,
+        "successful": 145,
+        "failed": 5,
+        "unique_ips": 12,
+        "recent_updates": 25,
+        "top_ips": [
+            {"ip": "203.0.113.10", "count": 45},
+            {"ip": "198.51.100.20", "count": 32}
+        ]
+    }
+}
+```
+
 ## Example Usage
 
 ### Using curl
@@ -355,6 +438,61 @@ The test script will:
 - Test the DNS update functionality
 - Display the results
 
+### Using the logging test script
+```bash
+python test_logs.py
+```
+
+The logging test script will:
+- Test DNS updates with logging
+- Verify the logs API endpoints
+- Check the web interface accessibility
+- Display comprehensive usage instructions
+
+### Viewing DNS Logs
+
+#### Web Interface
+```bash
+# Open in your browser
+http://localhost:5000/logs
+```
+
+**Features:**
+- Real-time statistics dashboard
+- Search and filter capabilities
+- Mobile-responsive design
+- Auto-refresh every 30 seconds
+
+#### API Access
+```bash
+# Get all logs
+curl http://localhost:5000/api/logs
+
+# Get successful updates only
+curl "http://localhost:5000/api/logs?filter=success"
+
+# Search for specific IP
+curl "http://localhost:5000/api/logs?search=203.0.113.10"
+
+# Get statistics
+curl http://localhost:5000/api/stats
+```
+
+#### Log File Management
+```bash
+# View logs in terminal
+python view_logs.py
+
+# Show statistics
+python view_logs.py stats
+
+# Show failed updates
+python view_logs.py failed
+
+# Show recent updates
+python view_logs.py recent 20
+```
+
 ### Combined Format Integration
 
 The service supports sending data in the format `"IP PASSWORD"` for convenience:
@@ -387,6 +525,8 @@ sudo ./service-manager.sh logs
 # Test the service
 sudo ./service-manager.sh test
 ```
+
+
 
 ## Security Considerations
 

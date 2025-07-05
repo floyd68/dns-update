@@ -1,9 +1,11 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import boto3
 import os
 from botocore.exceptions import ClientError
 import logging
 import re
+import json
+from datetime import datetime, timedelta
 from config import Config
 
 # Configure logging
@@ -129,6 +131,47 @@ def validate_password(request, password_from_body=None):
     
     return False
 
+def log_dns_update(ip_address, requester_ip, domain_name, status, change_id=None, error_message=None, auth_method=None):
+    """
+    Log DNS update attempt to JSON log file.
+    """
+    try:
+        log_entry = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'ip_address': ip_address,
+            'requester_ip': requester_ip,
+            'domain_name': domain_name,
+            'status': status,
+            'change_id': change_id,
+            'error_message': error_message,
+            'auth_method': auth_method,
+            'user_agent': request.headers.get('User-Agent', '')
+        }
+        
+        # Write to JSON log file
+        log_file = 'dns_updates.log'
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(log_entry) + '\n')
+        
+        logger.info(f"DNS update logged: {ip_address} -> {domain_name} ({status})")
+    except Exception as e:
+        logger.error(f"Failed to log DNS update: {e}")
+
+def get_auth_method(request, password_from_body=None):
+    """
+    Determine the authentication method used.
+    """
+    if password_from_body:
+        return 'combined'
+    elif request.headers.get('Authorization'):
+        return 'header'
+    elif request.headers.get('X-Auth-Password'):
+        return 'header'
+    elif request.args.get('password'):
+        return 'query'
+    else:
+        return None
+
 @app.route('/update-dns', methods=['POST'])
 def update_dns():
     """
@@ -165,6 +208,9 @@ def update_dns():
         
         # Validate password authentication
         if not validate_password(request, password):
+            auth_method = get_auth_method(request, password)
+            log_dns_update(ip_address, get_requester_ip(), Config.DOMAIN_NAME, 'error', 
+                          error_message='Authentication failed', auth_method=auth_method)
             return jsonify({
                 'error': 'Authentication failed. Invalid or missing password.'
             }), 401
@@ -174,6 +220,10 @@ def update_dns():
         
         # Check if the requested IP matches the requester's IP
         if not is_ip_match_allowed(ip_address, requester_ip):
+            auth_method = get_auth_method(request, password)
+            log_dns_update(ip_address, requester_ip, Config.DOMAIN_NAME, 'error',
+                          error_message=f'IP address mismatch. Requested: {ip_address}, Requester: {requester_ip}', 
+                          auth_method=auth_method)
             return jsonify({
                 'error': f'IP address mismatch. Requested: {ip_address}, Requester: {requester_ip}. Only updating to your own IP address is allowed.'
             }), 403
@@ -183,16 +233,27 @@ def update_dns():
         domain_name = Config.DOMAIN_NAME
         
         if not hosted_zone_id or not domain_name:
+            auth_method = get_auth_method(request, password)
+            log_dns_update(ip_address, requester_ip, domain_name or 'unknown', 'error',
+                          error_message='Domain name or hosted zone not configured', auth_method=auth_method)
             return jsonify({
                 'error': 'Domain name or hosted zone not configured. Please set HOSTED_ZONE_ID and DOMAIN_NAME environment variables.'
             }), 500
         
         # Check if AWS client is available
         if route53_client is None:
+            auth_method = get_auth_method(request, password)
+            log_dns_update(ip_address, requester_ip, domain_name, 'error',
+                          error_message='AWS Route53 client not available', auth_method=auth_method)
             return jsonify({'error': 'AWS Route53 client not available. Check AWS credentials.'}), 500
         
         # Update the A record
         response = update_a_record(hosted_zone_id, domain_name, ip_address)
+        
+        # Log successful update
+        auth_method = get_auth_method(request, password)
+        log_dns_update(ip_address, requester_ip, domain_name, 'success', 
+                      change_id=response['ChangeInfo']['Id'], auth_method=auth_method)
         
         return jsonify({
             'success': True,
@@ -243,6 +304,155 @@ def update_a_record(hosted_zone_id, domain_name, ip_address):
 def health_check():
     """Health check endpoint."""
     return jsonify({'status': 'healthy', 'service': 'DNS Update Service'}), 200
+
+@app.route('/logs', methods=['GET'])
+def logs_page():
+    """DNS logs web interface."""
+    return render_template('logs.html')
+
+@app.route('/api/logs', methods=['GET'])
+def api_logs():
+    """API endpoint for retrieving DNS logs with filtering and pagination."""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = 50
+        filter_type = request.args.get('filter', 'all')
+        search = request.args.get('search', '').strip()
+        
+        # Read logs from file
+        logs = []
+        log_file = 'dns_updates.log'
+        
+        if os.path.exists(log_file):
+            with open(log_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        log_entry = json.loads(line.strip())
+                        logs.append(log_entry)
+                    except json.JSONDecodeError:
+                        continue  # Skip invalid lines
+        
+        # Apply filters
+        filtered_logs = []
+        for log in logs:
+            # Status filter
+            if filter_type == 'success' and log.get('status') != 'success':
+                continue
+            elif filter_type == 'error' and log.get('status') != 'error':
+                continue
+            elif filter_type == 'today':
+                log_date = datetime.fromisoformat(log.get('timestamp', '')).date()
+                if log_date != datetime.utcnow().date():
+                    continue
+            elif filter_type == 'week':
+                log_date = datetime.fromisoformat(log.get('timestamp', ''))
+                if log_date < datetime.utcnow() - timedelta(days=7):
+                    continue
+            
+            # Search filter
+            if search:
+                search_lower = search.lower()
+                if not any(search_lower in str(log.get(field, '')).lower() 
+                          for field in ['ip_address', 'requester_ip', 'domain_name', 'error_message']):
+                    continue
+            
+            filtered_logs.append(log)
+        
+        # Sort by timestamp (newest first)
+        filtered_logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        # Apply pagination
+        total_count = len(filtered_logs)
+        total_pages = (total_count + per_page - 1) // per_page
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_logs = filtered_logs[start_idx:end_idx]
+        
+        # Calculate statistics
+        all_logs = []
+        if os.path.exists(log_file):
+            with open(log_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        all_logs.append(json.loads(line.strip()))
+                    except json.JSONDecodeError:
+                        continue
+        
+        successful_count = sum(1 for log in all_logs if log.get('status') == 'success')
+        failed_count = sum(1 for log in all_logs if log.get('status') == 'error')
+        unique_ips = len(set(log.get('ip_address') for log in all_logs if log.get('ip_address')))
+        
+        stats = {
+            'total': len(all_logs),
+            'successful': successful_count,
+            'failed': failed_count,
+            'unique_ips': unique_ips
+        }
+        
+        return jsonify({
+            'success': True,
+            'logs': paginated_logs,
+            'stats': stats,
+            'current_page': page,
+            'total_pages': total_pages,
+            'total_count': total_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error retrieving logs: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/stats', methods=['GET'])
+def api_stats():
+    """API endpoint for getting DNS update statistics."""
+    try:
+        logs = []
+        log_file = 'dns_updates.log'
+        
+        if os.path.exists(log_file):
+            with open(log_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        logs.append(json.loads(line.strip()))
+                    except json.JSONDecodeError:
+                        continue
+        
+        # Calculate basic stats
+        total = len(logs)
+        successful = sum(1 for log in logs if log.get('status') == 'success')
+        failed = sum(1 for log in logs if log.get('status') == 'error')
+        unique_ips = len(set(log.get('ip_address') for log in logs if log.get('ip_address')))
+        
+        # Get recent activity (last 24 hours)
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        recent_updates = sum(1 for log in logs 
+                           if datetime.fromisoformat(log.get('timestamp', '')) >= yesterday)
+        
+        # Get top IP addresses
+        ip_counts = {}
+        for log in logs:
+            ip = log.get('ip_address')
+            if ip:
+                ip_counts[ip] = ip_counts.get(ip, 0) + 1
+        
+        top_ips = sorted(ip_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_ips_data = [{'ip': ip, 'count': count} for ip, count in top_ips]
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total': total,
+                'successful': successful,
+                'failed': failed,
+                'unique_ips': unique_ips,
+                'recent_updates': recent_updates,
+                'top_ips': top_ips_data
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error retrieving stats: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Get configuration from environment variables
