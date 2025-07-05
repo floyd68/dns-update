@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  dns-update-service:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      - FLASK_DEBUG=false
+      - AWS_DEFAULT_REGION=us-east-1
+      # Required DNS configuration
+      - HOSTED_ZONE_ID=${HOSTED_ZONE_ID}
+      - DOMAIN_NAME=${DOMAIN_NAME}
+      # AWS credentials should be set via environment variables or mounted secrets
+      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      # Mount AWS credentials if using file-based authentication
+      # - ~/.aws:/home/app/.aws:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 

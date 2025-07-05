@@ -1,0 +1,42 @@
+[Unit]
+Description=DNS Update Service
+Documentation=https://github.com/your-repo/dns-update
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=dns-updater
+Group=dns-updater
+WorkingDirectory=/opt/dns-update
+Environment=PATH=/opt/dns-update/venv/bin
+ExecStart=/opt/dns-update/venv/bin/python /opt/dns-update/app.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dns-update/logs
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+
+# Environment variables (override these in /etc/dns-update/env)
+Environment=FLASK_HOST=0.0.0.0
+Environment=FLASK_PORT=5000
+Environment=FLASK_DEBUG=false
+Environment=AWS_DEFAULT_REGION=us-east-1
+Environment=DNS_TTL=300
+Environment=LOG_LEVEL=INFO
+
+# Load environment variables from file
+EnvironmentFile=/etc/dns-update/env
+
+[Install]
+WantedBy=multi-user.target 
