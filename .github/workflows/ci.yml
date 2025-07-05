@@ -108,7 +108,7 @@ jobs:
     
     - name: Security check with safety
       run: |
-        safety scan
+        safety check --output text
     
     - name: Security check with bandit
       run: |
