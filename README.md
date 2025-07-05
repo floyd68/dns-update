@@ -495,6 +495,14 @@ The service logs all DNS update operations and errors. Logs include:
    - Install dependencies: `pip install -r requirements.txt`
    - Use the startup script for detailed error checking
 
+8. **404 Error Through Nginx**
+   - Ensure backend service is running on port 5000
+   - Check nginx status: `sudo systemctl status nginx`
+   - Verify nginx configuration: `sudo nginx -t`
+   - Restart nginx: `sudo systemctl restart nginx`
+   - Check nginx logs: `sudo tail -f /var/log/nginx/error.log`
+   - Run troubleshooting script: `python troubleshoot_nginx.py`
+
 ### Debug Mode
 
 Enable debug mode for detailed error information:
