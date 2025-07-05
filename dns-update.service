@@ -1,6 +1,6 @@
 [Unit]
 Description=DNS Update Service
-Documentation=https://github.com/your-repo/dns-update
+Documentation=https://github.com/floyd68/dns-update
 After=network.target
 Wants=network.target
 
