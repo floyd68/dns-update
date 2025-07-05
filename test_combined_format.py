@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Test script for RouterOS format compatibility.
-This script demonstrates how the service handles RouterOS-style requests.
+Test script for combined format compatibility.
+This script demonstrates how the service handles combined IP+password requests.
 """
 
 import requests
@@ -9,56 +9,56 @@ import json
 import sys
 import os
 
-def test_routeros_format():
-    """Test the RouterOS format compatibility."""
+def test_combined_format():
+    """Test the combined format compatibility."""
     
     base_url = "http://localhost:5000"
     
-    print("🔄 Testing RouterOS Format Compatibility")
+    print("🔄 Testing Combined Format Compatibility")
     print("=" * 50)
     
-    # Test 1: RouterOS format with valid password (should succeed)
-    print("\n1. Testing RouterOS format with valid password (should succeed):")
+    # Test 1: Combined format with valid password (should succeed)
+    print("\n1. Testing combined format with valid password (should succeed):")
     try:
-        routeros_data = "127.0.0.1 test_password"
+        combined_data = "127.0.0.1 test_password"
         headers = {'Content-Type': 'text/plain'}
-        response = requests.post(f"{base_url}/update-dns", data=routeros_data, headers=headers)
+        response = requests.post(f"{base_url}/update-dns", data=combined_data, headers=headers)
         print(f"   Status: {response.status_code}")
         print(f"   Response: {response.json()}")
     except requests.exceptions.ConnectionError:
         print("   ❌ Service not running. Start the service first.")
         return
     
-    # Test 2: RouterOS format with invalid password (should fail with 401)
-    print("\n2. Testing RouterOS format with invalid password (should fail with 401):")
+    # Test 2: Combined format with invalid password (should fail with 401)
+    print("\n2. Testing combined format with invalid password (should fail with 401):")
     try:
-        routeros_data = "127.0.0.1 wrong_password"
+        combined_data = "127.0.0.1 wrong_password"
         headers = {'Content-Type': 'text/plain'}
-        response = requests.post(f"{base_url}/update-dns", data=routeros_data, headers=headers)
+        response = requests.post(f"{base_url}/update-dns", data=combined_data, headers=headers)
         print(f"   Status: {response.status_code}")
         print(f"   Response: {response.json()}")
     except requests.exceptions.ConnectionError:
         print("   ❌ Service not running.")
         return
     
-    # Test 3: RouterOS format with invalid IP (should fail with 400)
-    print("\n3. Testing RouterOS format with invalid IP (should fail with 400):")
+    # Test 3: Combined format with invalid IP (should fail with 400)
+    print("\n3. Testing combined format with invalid IP (should fail with 400):")
     try:
-        routeros_data = "invalid_ip test_password"
+        combined_data = "invalid_ip test_password"
         headers = {'Content-Type': 'text/plain'}
-        response = requests.post(f"{base_url}/update-dns", data=routeros_data, headers=headers)
+        response = requests.post(f"{base_url}/update-dns", data=combined_data, headers=headers)
         print(f"   Status: {response.status_code}")
         print(f"   Response: {response.json()}")
     except requests.exceptions.ConnectionError:
         print("   ❌ Service not running.")
         return
     
-    # Test 4: RouterOS format with too many parts (should fail with 400)
-    print("\n4. Testing RouterOS format with too many parts (should fail with 400):")
+    # Test 4: Combined format with too many parts (should fail with 400)
+    print("\n4. Testing combined format with too many parts (should fail with 400):")
     try:
-        routeros_data = "127.0.0.1 test_password extra_part"
+        combined_data = "127.0.0.1 test_password extra_part"
         headers = {'Content-Type': 'text/plain'}
-        response = requests.post(f"{base_url}/update-dns", data=routeros_data, headers=headers)
+        response = requests.post(f"{base_url}/update-dns", data=combined_data, headers=headers)
         print(f"   Status: {response.status_code}")
         print(f"   Response: {response.json()}")
     except requests.exceptions.ConnectionError:
@@ -90,19 +90,18 @@ def test_routeros_format():
         return
     
     print("\n" + "=" * 50)
-    print("📋 RouterOS Format Features:")
+    print("📋 Combined Format Features:")
     print()
     print("✅ Supported formats:")
-    print("   - RouterOS: 'IP PASSWORD'")
+    print("   - Combined: 'IP PASSWORD'")
     print("   - Plain IP: 'IP' (with headers)")
     print()
-    print("🔧 RouterOS Script Example:")
-    print("   :local publicIP [/tool fetch url='https://api.ipify.org' output=text]")
-    print("   :local url 'https://your-domain.com/update-dns'")
-    print("   :local password 'your_password'")
-    print("   /tool fetch url=($url) http-method=post http-data=(\"$publicIP $password\") output=none")
+    print("🔧 Example Usage:")
+    print("   curl -X POST https://your-domain.com/update-dns \\")
+    print("     -H 'Content-Type: text/plain' \\")
+    print("     -d '203.0.113.10 your_password'")
     print()
     print("For more information, see the README.md file.")
 
 if __name__ == "__main__":
-    test_routeros_format() 
+    test_combined_format() 

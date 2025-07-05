@@ -90,7 +90,7 @@ def is_ip_in_subnet(ip, subnet):
         # If subnet parsing fails, return False
         return False
 
-def validate_password(request):
+def validate_password(request, password_from_body=None):
     """
     Validate the password from the request.
     Returns True if password is valid or authentication is disabled, False otherwise.
@@ -102,6 +102,10 @@ def validate_password(request):
     # If no password is configured, allow all requests
     if not Config.AUTH_PASSWORD:
         return True
+    
+    # Check password from combined format (passed as parameter)
+    if password_from_body:
+        return password_from_body == Config.AUTH_PASSWORD
     
     # Check for password in Authorization header
     auth_header = request.headers.get('Authorization')
@@ -140,17 +144,13 @@ def update_dns():
         if not request_data:
             return jsonify({'error': 'No data provided'}), 400
         
-        # Parse data - RouterOS sends "IP PASSWORD" format
+        # Parse data - support "IP PASSWORD" format or plain IP
         data_parts = request_data.split()
         
         if len(data_parts) == 2:
-            # RouterOS format: "IP PASSWORD"
+            # Combined format: "IP PASSWORD"
             ip_address = data_parts[0]
             password = data_parts[1]
-            
-            # Set the password in request headers for validation
-            request.headers = request.headers.copy()
-            request.headers['Authorization'] = password
             
         elif len(data_parts) == 1:
             # Plain IP format (existing behavior)
@@ -164,7 +164,7 @@ def update_dns():
             return jsonify({'error': 'Invalid IP address format'}), 400
         
         # Validate password authentication
-        if not validate_password(request):
+        if not validate_password(request, password):
             return jsonify({
                 'error': 'Authentication failed. Invalid or missing password.'
             }), 401

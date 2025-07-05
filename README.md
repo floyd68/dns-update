@@ -246,7 +246,7 @@ The service will start on `http://0.0.0.0:5000` by default.
    192.168.1.100
    ```
 
-2. **RouterOS format (IP + Password):**
+2. **Combined format (IP + Password):**
    ```
    192.168.1.100 your_password
    ```
@@ -288,7 +288,7 @@ curl -X POST http://localhost:5000/update-dns \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10"
 
-# Method 2: RouterOS format (IP + password in body)
+# Method 2: Combined format (IP + password in body)
 curl -X POST http://localhost:5000/update-dns \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10 your_password"
@@ -299,7 +299,7 @@ curl -X POST https://your-domain.com/update-dns \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10"
 
-# RouterOS format through nginx
+# Combined format through nginx
 curl -X POST https://your-domain.com/update-dns \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10 your_password"
@@ -329,10 +329,10 @@ headers = {
 response = requests.post('http://localhost:5000/update-dns', data=ip_address, headers=headers)
 print(response.json())
 
-# Method 2: RouterOS format (IP + password in body)
-routeros_data = "203.0.113.10 your_password"
+# Method 2: Combined format (IP + password in body)
+combined_data = "203.0.113.10 your_password"
 headers = {'Content-Type': 'text/plain'}
-response = requests.post('http://localhost:5000/update-dns', data=routeros_data, headers=headers)
+response = requests.post('http://localhost:5000/update-dns', data=combined_data, headers=headers)
 print(response.json())
 
 # Alternative: Using query parameter for authentication
@@ -355,23 +355,20 @@ The test script will:
 - Test the DNS update functionality
 - Display the results
 
-### RouterOS Integration
+### Combined Format Integration
 
-The service supports RouterOS scripts that send data in the format `"IP PASSWORD"`:
+The service supports sending data in the format `"IP PASSWORD"` for convenience:
 
-**RouterOS Script Example:**
-```routeros
-# Get public IP
-:local publicIP [/tool fetch url="https://api.ipify.org" output=text]
-
-# Update DNS
-:local url "https://your-domain.com/update-dns"
-:local password "your_password"
-/tool fetch url=($url) http-method=post http-data=("$publicIP $password") output=none
+**Example Usage:**
+```bash
+# Get public IP and update DNS in one request
+curl -X POST https://your-domain.com/update-dns \
+  -H "Content-Type: text/plain" \
+  -d "203.0.113.10 your_password"
 ```
 
 **Features:**
-- Automatically parses RouterOS format: `"IP PASSWORD"`
+- Automatically parses combined format: `"IP PASSWORD"`
 - Falls back to plain IP format for backward compatibility
 - Supports all authentication methods (headers, query parameters, or embedded in body)
 - Maintains security with password validation
