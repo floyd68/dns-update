@@ -156,6 +156,8 @@ def log_dns_update(ip_address, requester_ip, domain_name, status, change_id=None
         try:
             with open(log_file, 'a', encoding='utf-8') as f:
                 f.write(json.dumps(log_entry) + '\n')
+                f.flush()  # Ensure data is written to disk immediately
+                os.fsync(f.fileno())  # Force sync to disk
             logger.info(f"DNS update logged: {ip_address} -> {domain_name} ({status})")
         except (IOError, OSError) as e:
             # If the specified log file fails, try writing to /tmp
@@ -164,6 +166,8 @@ def log_dns_update(ip_address, requester_ip, domain_name, status, change_id=None
                 try:
                     with open('/tmp/dns_updates.log', 'a', encoding='utf-8') as f:
                         f.write(json.dumps(log_entry) + '\n')
+                        f.flush()  # Ensure data is written to disk immediately
+                        os.fsync(f.fileno())  # Force sync to disk
                     logger.info(f"DNS update logged to /tmp/dns_updates.log: {ip_address} -> {domain_name} ({status})")
                 except (IOError, OSError) as tmp_error:
                     logger.error(f"Failed to write to /tmp/dns_updates.log: {tmp_error}")

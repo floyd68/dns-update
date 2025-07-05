@@ -239,7 +239,7 @@ The service will start on `http://0.0.0.0:5000` by default.
 - `AWS_DEFAULT_REGION`: AWS region (default: us-east-1)
 - `DNS_TTL`: TTL for DNS records in seconds (default: 300)
 - `LOG_LEVEL`: Logging level (default: INFO)
-- `DNS_LOG_FILE`: Path to DNS update log file (default: dns_updates.log)
+- `DNS_LOG_FILE`: Path to DNS update log file (default: dns_updates.log). Logs persist across service restarts.
 - `ENABLE_IP_VALIDATION`: Enable IP address validation (default: True)
 - `ALLOWED_IPS`: Comma-separated list of allowed IP addresses (optional)
 - `ALLOWED_SUBNETS`: Comma-separated list of allowed subnets in CIDR notation (optional)
@@ -507,6 +507,13 @@ export DNS_LOG_FILE=/tmp/dns_updates.log
 # Use a writable directory
 export DNS_LOG_FILE=/var/log/dns_updates.log
 ```
+
+**Log File Persistence:**
+- Logs are written in append mode and persist across service restarts
+- The systemd service is configured to use `/opt/dns-update/logs/dns_updates.log` by default
+- Log files are never automatically cleared or truncated
+- Logs are immediately flushed to disk to prevent data loss during crashes
+- Use log rotation tools (like logrotate) for long-term log management
 
 **Fallback Behavior:**
 - If the configured log file is not writable, the service will try `/tmp/dns_updates.log`
