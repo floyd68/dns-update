@@ -205,6 +205,44 @@ def get_auth_method(request, password_from_body=None):
     else:
         return None
 
+def read_logs_from_file():
+    """
+    Read logs from file with fallback logic.
+    Returns a list of log entries.
+    """
+    logs = []
+    log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
+    
+    # Try to read from the configured log file
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        log_entry = json.loads(line.strip())
+                        logs.append(log_entry)
+                    except json.JSONDecodeError:
+                        continue  # Skip invalid lines
+        except (IOError, OSError) as e:
+            logger.warning(f"Failed to read from {log_file}: {e}")
+    
+    # If no logs found in configured file, try /tmp/dns_updates.log
+    if not logs and log_file != '/tmp/dns_updates.log':
+        tmp_log_file = '/tmp/dns_updates.log'
+        if os.path.exists(tmp_log_file):
+            try:
+                with open(tmp_log_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        try:
+                            log_entry = json.loads(line.strip())
+                            logs.append(log_entry)
+                        except json.JSONDecodeError:
+                            continue
+            except (IOError, OSError) as e:
+                logger.warning(f"Failed to read from {tmp_log_file}: {e}")
+    
+    return logs
+
 @app.route('/update-dns', methods=['POST'])
 def update_dns():
     """
@@ -352,37 +390,8 @@ def api_logs():
         filter_type = request.args.get('filter', 'all')
         search = request.args.get('search', '').strip()
         
-        # Read logs from file
-        logs = []
-        log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
-        
-        # Try to read from the configured log file
-        if os.path.exists(log_file):
-            try:
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        try:
-                            log_entry = json.loads(line.strip())
-                            logs.append(log_entry)
-                        except json.JSONDecodeError:
-                            continue  # Skip invalid lines
-            except (IOError, OSError) as e:
-                logger.warning(f"Failed to read from {log_file}: {e}")
-        
-        # If no logs found in configured file, try /tmp/dns_updates.log
-        if not logs and log_file != '/tmp/dns_updates.log':
-            tmp_log_file = '/tmp/dns_updates.log'
-            if os.path.exists(tmp_log_file):
-                try:
-                    with open(tmp_log_file, 'r', encoding='utf-8') as f:
-                        for line in f:
-                            try:
-                                log_entry = json.loads(line.strip())
-                                logs.append(log_entry)
-                            except json.JSONDecodeError:
-                                continue
-                except (IOError, OSError) as e:
-                    logger.warning(f"Failed to read from {tmp_log_file}: {e}")
+        # Read logs from file using helper function
+        logs = read_logs_from_file()
         
         # Apply filters
         filtered_logs = []
@@ -420,22 +429,13 @@ def api_logs():
         end_idx = start_idx + per_page
         paginated_logs = filtered_logs[start_idx:end_idx]
         
-        # Calculate statistics
-        all_logs = []
-        if os.path.exists(log_file):
-            with open(log_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    try:
-                        all_logs.append(json.loads(line.strip()))
-                    except json.JSONDecodeError:
-                        continue
-        
-        successful_count = sum(1 for log in all_logs if log.get('status') == 'success')
-        failed_count = sum(1 for log in all_logs if log.get('status') == 'error')
-        unique_ips = len(set(log.get('ip_address') for log in all_logs if log.get('ip_address')))
+        # Calculate statistics using the same logs
+        successful_count = sum(1 for log in logs if log.get('status') == 'success')
+        failed_count = sum(1 for log in logs if log.get('status') == 'error')
+        unique_ips = len(set(log.get('ip_address') for log in logs if log.get('ip_address')))
         
         stats = {
-            'total': len(all_logs),
+            'total': len(logs),
             'successful': successful_count,
             'failed': failed_count,
             'unique_ips': unique_ips
@@ -458,34 +458,8 @@ def api_logs():
 def api_stats():
     """API endpoint for getting DNS update statistics."""
     try:
-        logs = []
-        log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
-        
-        # Try to read from the configured log file
-        if os.path.exists(log_file):
-            try:
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        try:
-                            logs.append(json.loads(line.strip()))
-                        except json.JSONDecodeError:
-                            continue
-            except (IOError, OSError) as e:
-                logger.warning(f"Failed to read from {log_file}: {e}")
-        
-        # If no logs found in configured file, try /tmp/dns_updates.log
-        if not logs and log_file != '/tmp/dns_updates.log':
-            tmp_log_file = '/tmp/dns_updates.log'
-            if os.path.exists(tmp_log_file):
-                try:
-                    with open(tmp_log_file, 'r', encoding='utf-8') as f:
-                        for line in f:
-                            try:
-                                logs.append(json.loads(line.strip()))
-                            except json.JSONDecodeError:
-                                continue
-                except (IOError, OSError) as e:
-                    logger.warning(f"Failed to read from {tmp_log_file}: {e}")
+        # Read logs from file using helper function
+        logs = read_logs_from_file()
         
         # Calculate basic stats
         total = len(logs)
