@@ -18,9 +18,11 @@ jobs:
     
     - name: Clear Python cache
       run: |
-        rm -rf ~/.cache/pip
-        rm -rf ~/.local/lib/python*
-        rm -rf /usr/local/lib/python*
+        rm -rf ~/.cache/pip || true
+        rm -rf ~/.local/lib/python* || true
+        rm -rf ~/.local/bin/python* || true
+        rm -rf ~/.cache/pytest || true
+        rm -rf ~/.cache/black || true
     
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
@@ -78,9 +80,11 @@ jobs:
     
     - name: Clear Python cache
       run: |
-        rm -rf ~/.cache/pip
-        rm -rf ~/.local/lib/python*
-        rm -rf /usr/local/lib/python*
+        rm -rf ~/.cache/pip || true
+        rm -rf ~/.local/lib/python* || true
+        rm -rf ~/.local/bin/python* || true
+        rm -rf ~/.cache/pytest || true
+        rm -rf ~/.cache/black || true
     
     - name: Set up Python
       uses: actions/setup-python@v4
