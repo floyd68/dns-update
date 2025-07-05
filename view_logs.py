@@ -13,27 +13,45 @@ from collections import Counter
 def load_logs():
     """Load logs from the JSON log file."""
     logs = []
-    log_file = 'dns_updates.log'
+    log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
     
-    if not os.path.exists(log_file):
-        print(f"❌ Log file not found: {log_file}")
-        print("   No DNS updates have been logged yet.")
-        return []
+    # Try to read from the configured log file
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f, 1):
+                    try:
+                        log_entry = json.loads(line.strip())
+                        logs.append(log_entry)
+                    except json.JSONDecodeError as e:
+                        print(f"⚠️  Invalid JSON on line {line_num}: {e}")
+                        continue
+            print(f"✅ Loaded {len(logs)} logs from {log_file}")
+            return logs
+        except Exception as e:
+            print(f"❌ Error reading log file {log_file}: {e}")
     
-    try:
-        with open(log_file, 'r', encoding='utf-8') as f:
-            for line_num, line in enumerate(f, 1):
-                try:
-                    log_entry = json.loads(line.strip())
-                    logs.append(log_entry)
-                except json.JSONDecodeError as e:
-                    print(f"⚠️  Invalid JSON on line {line_num}: {e}")
-                    continue
-    except Exception as e:
-        print(f"❌ Error reading log file: {e}")
-        return []
+    # If no logs found in configured file, try /tmp/dns_updates.log
+    if log_file != '/tmp/dns_updates.log':
+        tmp_log_file = '/tmp/dns_updates.log'
+        if os.path.exists(tmp_log_file):
+            try:
+                with open(tmp_log_file, 'r', encoding='utf-8') as f:
+                    for line_num, line in enumerate(f, 1):
+                        try:
+                            log_entry = json.loads(line.strip())
+                            logs.append(log_entry)
+                        except json.JSONDecodeError as e:
+                            print(f"⚠️  Invalid JSON on line {line_num}: {e}")
+                            continue
+                print(f"✅ Loaded {len(logs)} logs from {tmp_log_file}")
+                return logs
+            except Exception as e:
+                print(f"❌ Error reading log file {tmp_log_file}: {e}")
     
-    return logs
+    print(f"❌ No log files found at {log_file} or /tmp/dns_updates.log")
+    print("   No DNS updates have been logged yet.")
+    return []
 
 def show_statistics(logs):
     """Display log statistics."""

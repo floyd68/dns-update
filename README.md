@@ -239,6 +239,7 @@ The service will start on `http://0.0.0.0:5000` by default.
 - `AWS_DEFAULT_REGION`: AWS region (default: us-east-1)
 - `DNS_TTL`: TTL for DNS records in seconds (default: 300)
 - `LOG_LEVEL`: Logging level (default: INFO)
+- `DNS_LOG_FILE`: Path to DNS update log file (default: dns_updates.log)
 - `ENABLE_IP_VALIDATION`: Enable IP address validation (default: True)
 - `ALLOWED_IPS`: Comma-separated list of allowed IP addresses (optional)
 - `ALLOWED_SUBNETS`: Comma-separated list of allowed subnets in CIDR notation (optional)
@@ -492,6 +493,25 @@ python view_logs.py failed
 # Show recent updates
 python view_logs.py recent 20
 ```
+
+#### Log File Configuration
+The service supports configurable log file locations to handle read-only file systems:
+
+```bash
+# Use default location (current directory)
+export DNS_LOG_FILE=dns_updates.log
+
+# Use /tmp directory (for read-only systems)
+export DNS_LOG_FILE=/tmp/dns_updates.log
+
+# Use a writable directory
+export DNS_LOG_FILE=/var/log/dns_updates.log
+```
+
+**Fallback Behavior:**
+- If the configured log file is not writable, the service will try `/tmp/dns_updates.log`
+- If `/tmp` is also not writable, logs will be written to stderr
+- The service will continue to function even if logging fails
 
 ### Combined Format Integration
 

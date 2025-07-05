@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 import boto3
 import os
+import sys
 from botocore.exceptions import ClientError
 import logging
 import re
@@ -148,14 +149,46 @@ def log_dns_update(ip_address, requester_ip, domain_name, status, change_id=None
             'user_agent': request.headers.get('User-Agent', '')
         }
         
-        # Write to JSON log file
-        log_file = 'dns_updates.log'
-        with open(log_file, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(log_entry) + '\n')
+        # Get log file path from config or use default
+        log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
         
-        logger.info(f"DNS update logged: {ip_address} -> {domain_name} ({status})")
+        # Try to write to the specified log file
+        try:
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_entry) + '\n')
+            logger.info(f"DNS update logged: {ip_address} -> {domain_name} ({status})")
+        except (IOError, OSError) as e:
+            # If the specified log file fails, try writing to /tmp
+            if log_file != '/tmp/dns_updates.log':
+                logger.warning(f"Failed to write to {log_file}: {e}. Trying /tmp/dns_updates.log")
+                try:
+                    with open('/tmp/dns_updates.log', 'a', encoding='utf-8') as f:
+                        f.write(json.dumps(log_entry) + '\n')
+                    logger.info(f"DNS update logged to /tmp/dns_updates.log: {ip_address} -> {domain_name} ({status})")
+                except (IOError, OSError) as tmp_error:
+                    logger.error(f"Failed to write to /tmp/dns_updates.log: {tmp_error}")
+                    # Log to stderr as fallback
+                    print(f"DNS_LOG_FALLBACK: {json.dumps(log_entry)}", file=sys.stderr)
+            else:
+                logger.error(f"Failed to write to {log_file}: {e}")
+                # Log to stderr as fallback
+                print(f"DNS_LOG_FALLBACK: {json.dumps(log_entry)}", file=sys.stderr)
+                
     except Exception as e:
         logger.error(f"Failed to log DNS update: {e}")
+        # Log to stderr as final fallback
+        try:
+            fallback_entry = {
+                'timestamp': datetime.utcnow().isoformat(),
+                'ip_address': ip_address,
+                'requester_ip': requester_ip,
+                'domain_name': domain_name,
+                'status': status,
+                'error': f'Logging failed: {str(e)}'
+            }
+            print(f"DNS_LOG_FALLBACK: {json.dumps(fallback_entry)}", file=sys.stderr)
+        except:
+            pass
 
 def get_auth_method(request, password_from_body=None):
     """
@@ -321,16 +354,35 @@ def api_logs():
         
         # Read logs from file
         logs = []
-        log_file = 'dns_updates.log'
+        log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
         
+        # Try to read from the configured log file
         if os.path.exists(log_file):
-            with open(log_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    try:
-                        log_entry = json.loads(line.strip())
-                        logs.append(log_entry)
-                    except json.JSONDecodeError:
-                        continue  # Skip invalid lines
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        try:
+                            log_entry = json.loads(line.strip())
+                            logs.append(log_entry)
+                        except json.JSONDecodeError:
+                            continue  # Skip invalid lines
+            except (IOError, OSError) as e:
+                logger.warning(f"Failed to read from {log_file}: {e}")
+        
+        # If no logs found in configured file, try /tmp/dns_updates.log
+        if not logs and log_file != '/tmp/dns_updates.log':
+            tmp_log_file = '/tmp/dns_updates.log'
+            if os.path.exists(tmp_log_file):
+                try:
+                    with open(tmp_log_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            try:
+                                log_entry = json.loads(line.strip())
+                                logs.append(log_entry)
+                            except json.JSONDecodeError:
+                                continue
+                except (IOError, OSError) as e:
+                    logger.warning(f"Failed to read from {tmp_log_file}: {e}")
         
         # Apply filters
         filtered_logs = []
@@ -407,15 +459,33 @@ def api_stats():
     """API endpoint for getting DNS update statistics."""
     try:
         logs = []
-        log_file = 'dns_updates.log'
+        log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
         
+        # Try to read from the configured log file
         if os.path.exists(log_file):
-            with open(log_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    try:
-                        logs.append(json.loads(line.strip()))
-                    except json.JSONDecodeError:
-                        continue
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        try:
+                            logs.append(json.loads(line.strip()))
+                        except json.JSONDecodeError:
+                            continue
+            except (IOError, OSError) as e:
+                logger.warning(f"Failed to read from {log_file}: {e}")
+        
+        # If no logs found in configured file, try /tmp/dns_updates.log
+        if not logs and log_file != '/tmp/dns_updates.log':
+            tmp_log_file = '/tmp/dns_updates.log'
+            if os.path.exists(tmp_log_file):
+                try:
+                    with open(tmp_log_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            try:
+                                logs.append(json.loads(line.strip()))
+                            except json.JSONDecodeError:
+                                continue
+                except (IOError, OSError) as e:
+                    logger.warning(f"Failed to read from {tmp_log_file}: {e}")
         
         # Calculate basic stats
         total = len(logs)

@@ -335,19 +335,30 @@ EOF
         echo "Testing:"
         echo "  - Health check: curl $TEST_URL/health"
         echo "  - DNS update: curl -X POST $TEST_URL/update-dns -H 'Content-Type: text/plain' -d '192.168.1.100'"
+        echo "  - Logs web interface: $TEST_URL/logs"
+        echo "  - Logs API: curl $TEST_URL/api/logs"
+        echo "  - Stats API: curl $TEST_URL/api/stats"
+        echo ""
+        echo "Available Endpoints:"
+        echo "  - POST /update-dns - Update DNS A record"
+        echo "  - GET /health - Health check"
+        echo "  - GET /logs - Web interface for viewing logs"
+        echo "  - GET /api/logs - API for retrieving logs with filtering"
+        echo "  - GET /api/stats - API for DNS update statistics"
         echo ""
         echo -e "${YELLOW}Important:${NC}"
         echo "1. Ensure your DNS service is running on port 5000"
         echo "2. Update your domain's DNS A record to point to this server"
+        echo "3. The logs and stats endpoints are protected by IP whitelist (see nginx config)"
         case $PROTOCOL_MODE in
             "lets_encrypt")
-                echo "3. Let's Encrypt certificates auto-renew, but monitor renewal logs"
+                echo "4. Let's Encrypt certificates auto-renew, but monitor renewal logs"
                 ;;
             "self_signed")
-                echo "3. Self-signed certificates are for testing only"
+                echo "4. Self-signed certificates are for testing only"
                 ;;
             "http_only")
-                echo "3. HTTP-only mode is not recommended for production use"
+                echo "4. HTTP-only mode is not recommended for production use"
                 ;;
         esac
         echo ""
