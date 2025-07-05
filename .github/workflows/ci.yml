@@ -108,7 +108,7 @@ jobs:
     
     - name: Security check with safety
       run: |
-        safety check
+        safety check --full-report
     
     - name: Security check with bandit
       run: |
