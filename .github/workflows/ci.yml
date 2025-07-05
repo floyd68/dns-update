@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11]
+        python-version: [3.9, 3.10, 3.11, 3.12]
 
     steps:
     - uses: actions/checkout@v3
@@ -20,6 +20,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
     
     - name: Cache pip dependencies
       uses: actions/cache@v3
@@ -34,6 +35,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-cov flake8 black
+      env:
+        PIP_CACHE_DIR: ~/.cache/pip
     
     - name: Lint with flake8
       run: |
@@ -64,13 +67,16 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.11
+        python-version: 3.12
+        cache: 'pip'
     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install safety bandit
+      env:
+        PIP_CACHE_DIR: ~/.cache/pip
     
     - name: Security check with safety
       run: |
