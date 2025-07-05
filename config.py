@@ -18,6 +18,15 @@ class Config:
     HOSTED_ZONE_ID = os.environ.get('HOSTED_ZONE_ID')
     DOMAIN_NAME = os.environ.get('DOMAIN_NAME')
     
+    # IP Validation Configuration
+    ENABLE_IP_VALIDATION = os.environ.get('ENABLE_IP_VALIDATION', 'True').lower() == 'true'
+    ALLOWED_IPS = os.environ.get('ALLOWED_IPS', '').split(',') if os.environ.get('ALLOWED_IPS') else []
+    ALLOWED_SUBNETS = os.environ.get('ALLOWED_SUBNETS', '').split(',') if os.environ.get('ALLOWED_SUBNETS') else []
+    
+    # Password Authentication Configuration
+    ENABLE_PASSWORD_AUTH = os.environ.get('ENABLE_PASSWORD_AUTH', 'True').lower() == 'true'
+    AUTH_PASSWORD = os.environ.get('AUTH_PASSWORD', '')
+    
     # Logging Configuration
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
     

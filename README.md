@@ -71,6 +71,96 @@ export DOMAIN_NAME=api.example.com
 - Use the full domain name (e.g., `api.example.com`)
 - The service will update the A record for this exact domain
 
+### 3. IP Validation Configuration (Optional)
+
+The service includes IP address validation to prevent unauthorized DNS updates. By default, it only allows updating to the requester's own IP address.
+
+**Default Behavior (Recommended):**
+```bash
+# No additional configuration needed - only allows updating to requester's IP
+export ENABLE_IP_VALIDATION=true
+```
+
+**Allow Specific IP Addresses:**
+```bash
+# Allow specific IP addresses to update any IP
+export ENABLE_IP_VALIDATION=true
+export ALLOWED_IPS=192.168.1.100,10.0.0.50
+```
+
+**Allow Specific Subnets:**
+```bash
+# Allow IPs from specific subnets to update any IP
+export ENABLE_IP_VALIDATION=true
+export ALLOWED_SUBNETS=192.168.1.0/24,10.0.0.0/16
+```
+
+**Disable IP Validation (Not Recommended for Production):**
+```bash
+# Disable IP validation entirely
+export ENABLE_IP_VALIDATION=false
+```
+
+**Combined Configuration:**
+```bash
+# Allow requester's own IP + specific IPs + specific subnets
+export ENABLE_IP_VALIDATION=true
+export ALLOWED_IPS=192.168.1.100,10.0.0.50
+export ALLOWED_SUBNETS=192.168.1.0/24,10.0.0.0/16
+```
+
+### 4. Password Authentication Configuration (Optional)
+
+The service includes password authentication as an additional security layer. By default, password authentication is enabled.
+
+**Default Behavior (Recommended):**
+```bash
+# Enable password authentication
+export ENABLE_PASSWORD_AUTH=true
+export AUTH_PASSWORD=your_secure_password_here
+```
+
+**Disable Password Authentication (Not Recommended for Production):**
+```bash
+# Disable password authentication entirely
+export ENABLE_PASSWORD_AUTH=false
+```
+
+**Password Authentication Methods:**
+
+The service accepts the password in multiple ways:
+
+1. **Authorization Header:**
+   ```bash
+   curl -X POST http://localhost:5000/update-dns \
+     -H "Authorization: your_password" \
+     -H "Content-Type: text/plain" \
+     -d "192.168.1.100"
+   ```
+
+2. **Bearer Token Format:**
+   ```bash
+   curl -X POST http://localhost:5000/update-dns \
+     -H "Authorization: Bearer your_password" \
+     -H "Content-Type: text/plain" \
+     -d "192.168.1.100"
+   ```
+
+3. **Custom Header:**
+   ```bash
+   curl -X POST http://localhost:5000/update-dns \
+     -H "X-Auth-Password: your_password" \
+     -H "Content-Type: text/plain" \
+     -d "192.168.1.100"
+   ```
+
+4. **Query Parameter:**
+   ```bash
+   curl -X POST "http://localhost:5000/update-dns?password=your_password" \
+     -H "Content-Type: text/plain" \
+     -d "192.168.1.100"
+   ```
+
 ## Usage
 
 ### Starting the Service
@@ -138,6 +228,11 @@ The service will start on `http://0.0.0.0:5000` by default.
 - `AWS_DEFAULT_REGION`: AWS region (default: us-east-1)
 - `DNS_TTL`: TTL for DNS records in seconds (default: 300)
 - `LOG_LEVEL`: Logging level (default: INFO)
+- `ENABLE_IP_VALIDATION`: Enable IP address validation (default: True)
+- `ALLOWED_IPS`: Comma-separated list of allowed IP addresses (optional)
+- `ALLOWED_SUBNETS`: Comma-separated list of allowed subnets in CIDR notation (optional)
+- `ENABLE_PASSWORD_AUTH`: Enable password authentication (default: True)
+- `AUTH_PASSWORD`: Password for authentication (required if ENABLE_PASSWORD_AUTH is True)
 
 ### API Endpoints
 
@@ -182,16 +277,24 @@ The service will start on `http://0.0.0.0:5000` by default.
 ```bash
 # Direct access (if running without nginx)
 curl -X POST http://localhost:5000/update-dns \
+  -H "Authorization: your_password" \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10"
 
 # Through nginx reverse proxy (with SSL)
 curl -X POST https://your-domain.com/update-dns \
+  -H "Authorization: your_password" \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10"
 
 # Through nginx reverse proxy (HTTP only)
 curl -X POST http://your-domain.com/update-dns \
+  -H "Authorization: your_password" \
+  -H "Content-Type: text/plain" \
+  -d "203.0.113.10"
+
+# Using query parameter for authentication
+curl -X POST "http://localhost:5000/update-dns?password=your_password" \
   -H "Content-Type: text/plain" \
   -d "203.0.113.10"
 
@@ -206,9 +309,17 @@ curl http://your-domain.com/health
 ```python
 import requests
 
-# Update DNS A record
+# Update DNS A record with authentication
 ip_address = "203.0.113.10"
-response = requests.post('http://localhost:5000/update-dns', data=ip_address)
+headers = {
+    'Content-Type': 'text/plain',
+    'Authorization': 'your_password'
+}
+response = requests.post('http://localhost:5000/update-dns', data=ip_address, headers=headers)
+print(response.json())
+
+# Alternative: Using query parameter for authentication
+response = requests.post('http://localhost:5000/update-dns?password=your_password', data=ip_address)
 print(response.json())
 
 # Check service health
@@ -250,23 +361,38 @@ sudo ./service-manager.sh test
    - `route53:ChangeResourceRecordSets`
    - `route53:GetChange`
 
-3. **Network Security**: 
+3. **Password Authentication**: The service includes password authentication as an additional security layer:
+   - By default, requires a pre-configured password for all DNS updates
+   - Supports multiple authentication methods (headers, query parameters)
+   - Can be disabled for testing or specific use cases
+   - Use strong, unique passwords for production environments
+
+4. **IP Validation**: The service includes IP address validation to prevent unauthorized DNS updates:
+   - By default, only allows updating to the requester's own IP address
+   - Can be configured to allow specific IP addresses or subnets
+   - Can be disabled for testing or specific use cases
+   - Handles proxy headers (X-Forwarded-For, X-Real-IP) for accurate IP detection
+
+5. **Network Security**: 
    - Use HTTPS in production
    - Consider firewall rules to restrict access
    - Run behind a reverse proxy for additional security
 
-4. **Input Validation**: The service validates IP address format but consider additional validation for production use.
+6. **Input Validation**: The service validates IP address format but consider additional validation for production use.
 
-5. **Configuration Security**: 
+7. **Configuration Security**: 
    - Keep AWS credentials secure
    - Use IAM roles when possible
    - Rotate access keys regularly
+   - Store passwords securely and rotate them regularly
 
 ## Error Handling
 
 The service handles various error scenarios:
 - Missing or invalid IP address
 - Invalid IP address format
+- Authentication failure (invalid or missing password)
+- IP address mismatch (requested IP doesn't match requester's IP)
 - Missing DNS configuration (hosted zone ID or domain name)
 - AWS Route53 API errors
 - Network connectivity issues
@@ -278,6 +404,8 @@ All errors are logged and appropriate HTTP status codes are returned:
 |-------------|-------------|
 | 200 | Success |
 | 400 | Bad Request (invalid IP, missing data) |
+| 401 | Unauthorized (authentication failed) |
+| 403 | Forbidden (IP address mismatch) |
 | 500 | Server Error (AWS errors, configuration issues) |
 
 ## Logging
@@ -311,7 +439,20 @@ The service logs all DNS update operations and errors. Logs include:
    - Ensure IP address is in valid IPv4 format (e.g., 192.168.1.100)
    - Check for extra spaces or characters
 
-5. **Service Not Starting**
+5. **Authentication Failed (401 Unauthorized)**
+   - The service requires a password by default
+   - Check if you're providing the correct password
+   - Verify the password is set in `AUTH_PASSWORD` environment variable
+   - Use one of the supported authentication methods (headers, query parameters)
+   - Set `ENABLE_PASSWORD_AUTH=false` to disable authentication (not recommended for production)
+
+6. **IP Address Mismatch (403 Forbidden)**
+   - The service only allows updating to the requester's own IP address by default
+   - Check if you're requesting to update to a different IP than your own
+   - Configure `ALLOWED_IPS` or `ALLOWED_SUBNETS` if you need to update to different IPs
+   - Set `ENABLE_IP_VALIDATION=false` to disable this check (not recommended for production)
+
+7. **Service Not Starting**
    - Check Python version (3.7+ required)
    - Install dependencies: `pip install -r requirements.txt`
    - Use the startup script for detailed error checking

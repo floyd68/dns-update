@@ -107,6 +107,15 @@ AWS_DEFAULT_REGION=us-east-1
 HOSTED_ZONE_ID=Z1234567890ABC
 DOMAIN_NAME=api.example.com
 
+# IP Validation Configuration (Optional)
+ENABLE_IP_VALIDATION=true
+ALLOWED_IPS=
+ALLOWED_SUBNETS=
+
+# Password Authentication Configuration (Optional)
+ENABLE_PASSWORD_AUTH=true
+AUTH_PASSWORD=your_secure_password_here
+
 # Service Configuration (Optional)
 FLASK_HOST=0.0.0.0
 FLASK_PORT=5000

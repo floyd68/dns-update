@@ -38,6 +38,93 @@ def is_valid_ip(ip_address):
     except ValueError:
         return False
 
+def get_requester_ip():
+    """
+    Get the IP address of the requester, handling proxy headers.
+    """
+    # Check for proxy headers first (X-Forwarded-For, X-Real-IP)
+    if request.headers.get('X-Forwarded-For'):
+        # X-Forwarded-For can contain multiple IPs, take the first one
+        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    elif request.headers.get('X-Real-IP'):
+        return request.headers.get('X-Real-IP')
+    else:
+        # Fall back to direct connection IP
+        return request.remote_addr
+
+def is_ip_match_allowed(requested_ip, requester_ip):
+    """
+    Check if the requested IP address is allowed to be updated.
+    Returns True if the update is allowed, False otherwise.
+    """
+    # If IP validation is disabled, allow all updates
+    if not Config.ENABLE_IP_VALIDATION:
+        return True
+    
+    # Check if the requested IP matches the requester's IP
+    if requested_ip == requester_ip:
+        return True
+    
+    # Check if the requester's IP is in the allowed list
+    if Config.ALLOWED_IPS and requester_ip in Config.ALLOWED_IPS:
+        return True
+    
+    # Check if the requester's IP is in allowed subnets
+    if Config.ALLOWED_SUBNETS:
+        for subnet in Config.ALLOWED_SUBNETS:
+            if is_ip_in_subnet(requester_ip, subnet):
+                return True
+    
+    return False
+
+def is_ip_in_subnet(ip, subnet):
+    """
+    Check if an IP address is within a subnet (CIDR notation).
+    """
+    try:
+        import ipaddress
+        ip_obj = ipaddress.ip_address(ip)
+        subnet_obj = ipaddress.ip_network(subnet, strict=False)
+        return ip_obj in subnet_obj
+    except ValueError:
+        # If subnet parsing fails, return False
+        return False
+
+def validate_password(request):
+    """
+    Validate the password from the request.
+    Returns True if password is valid or authentication is disabled, False otherwise.
+    """
+    # If password authentication is disabled, allow all requests
+    if not Config.ENABLE_PASSWORD_AUTH:
+        return True
+    
+    # If no password is configured, allow all requests
+    if not Config.AUTH_PASSWORD:
+        return True
+    
+    # Check for password in Authorization header
+    auth_header = request.headers.get('Authorization')
+    if auth_header:
+        # Support both "Bearer password" and "password" formats
+        if auth_header.startswith('Bearer '):
+            password = auth_header[7:]  # Remove "Bearer " prefix
+        else:
+            password = auth_header
+        return password == Config.AUTH_PASSWORD
+    
+    # Check for password in X-Auth-Password header
+    password_header = request.headers.get('X-Auth-Password')
+    if password_header:
+        return password_header == Config.AUTH_PASSWORD
+    
+    # Check for password in query parameter
+    password_param = request.args.get('password')
+    if password_param:
+        return password_param == Config.AUTH_PASSWORD
+    
+    return False
+
 @app.route('/update-dns', methods=['POST'])
 def update_dns():
     """
@@ -56,6 +143,21 @@ def update_dns():
         # Validate IP address format (basic validation)
         if not is_valid_ip(ip_address):
             return jsonify({'error': 'Invalid IP address format'}), 400
+        
+        # Validate password authentication
+        if not validate_password(request):
+            return jsonify({
+                'error': 'Authentication failed. Invalid or missing password.'
+            }), 401
+        
+        # Get requester's IP address
+        requester_ip = get_requester_ip()
+        
+        # Check if the requested IP matches the requester's IP
+        if not is_ip_match_allowed(ip_address, requester_ip):
+            return jsonify({
+                'error': f'IP address mismatch. Requested: {ip_address}, Requester: {requester_ip}. Only updating to your own IP address is allowed.'
+            }), 403
         
         # Use pre-configured values
         hosted_zone_id = Config.HOSTED_ZONE_ID

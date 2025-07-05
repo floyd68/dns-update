@@ -64,6 +64,9 @@ def main():
     else:
         print("\n❌ DNS update test failed!")
         sys.exit(1)
+    
+    print("\n💡 Tip: Run 'python test_ip_validation.py' to test the IP validation feature.")
+    print("💡 Tip: Run 'python test_password_auth.py' to test the password authentication feature.")
 
 if __name__ == "__main__":
     print("DNS Update Service Test Script")

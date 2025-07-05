@@ -13,6 +13,13 @@ services:
       # Required DNS configuration
       - HOSTED_ZONE_ID=${HOSTED_ZONE_ID}
       - DOMAIN_NAME=${DOMAIN_NAME}
+      # IP validation configuration
+      - ENABLE_IP_VALIDATION=${ENABLE_IP_VALIDATION:-true}
+      - ALLOWED_IPS=${ALLOWED_IPS:-}
+      - ALLOWED_SUBNETS=${ALLOWED_SUBNETS:-}
+      # Password authentication configuration
+      - ENABLE_PASSWORD_AUTH=${ENABLE_PASSWORD_AUTH:-true}
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-}
       # AWS credentials should be set via environment variables or mounted secrets
       # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
