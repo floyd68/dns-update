@@ -57,6 +57,9 @@ else
     print_warning "User $SERVICE_USER already exists"
 fi
 
+# Store the original directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Create installation directory
 print_status "Creating installation directory..."
 mkdir -p $INSTALL_DIR
@@ -65,13 +68,13 @@ mkdir -p /etc/dns-update
 
 # Copy application files
 print_status "Copying application files..."
-cp app.py $INSTALL_DIR/
-cp config.py $INSTALL_DIR/
-cp requirements.txt $INSTALL_DIR/
-cp start.py $INSTALL_DIR/
-cp test_dns_update.py $INSTALL_DIR/
-cp test_ip_validation.py $INSTALL_DIR/
-cp test_password_auth.py $INSTALL_DIR/
+cp $SCRIPT_DIR/app.py $INSTALL_DIR/
+cp $SCRIPT_DIR/config.py $INSTALL_DIR/
+cp $SCRIPT_DIR/requirements.txt $INSTALL_DIR/
+cp $SCRIPT_DIR/start.py $INSTALL_DIR/
+cp $SCRIPT_DIR/test_dns_update.py $INSTALL_DIR/
+cp $SCRIPT_DIR/test_ip_validation.py $INSTALL_DIR/
+cp $SCRIPT_DIR/test_password_auth.py $INSTALL_DIR/
 
 # Set proper permissions
 chown -R $SERVICE_USER:$SERVICE_GROUP $INSTALL_DIR
@@ -132,7 +135,7 @@ chmod 600 $ENV_FILE
 
 # Install systemd service file
 print_status "Installing systemd service..."
-cp $(dirname $0)/dns-update.service $SERVICE_FILE
+cp $SCRIPT_DIR/dns-update.service $SERVICE_FILE
 
 # Reload systemd and enable service
 print_status "Reloading systemd and enabling service..."
