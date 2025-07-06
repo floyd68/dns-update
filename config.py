@@ -30,6 +30,9 @@ class Config:
     # Logging Configuration
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
     
+    # Flask Secret Key for session management
+    FLASK_SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', 'dns-update-secret-key-change-in-production')
+    
     @staticmethod
     def validate_aws_config():
         """Validate that AWS credentials are configured."""

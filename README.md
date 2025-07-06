@@ -245,6 +245,7 @@ The service will start on `http://0.0.0.0:5000` by default.
 - `ALLOWED_SUBNETS`: Comma-separated list of allowed subnets in CIDR notation (optional)
 - `ENABLE_PASSWORD_AUTH`: Enable password authentication (default: True)
 - `AUTH_PASSWORD`: Password for authentication (required if ENABLE_PASSWORD_AUTH is True)
+- `FLASK_SECRET_KEY`: Secret key for secure cookie management (recommended for production)
 
 ### API Endpoints
 
@@ -295,6 +296,12 @@ The service will start on `http://0.0.0.0:5000` by default.
 
 **Description:** Modern web interface for viewing DNS update logs with real-time statistics, filtering, and search capabilities.
 
+**Authentication:** 
+- Automatic access from the last successful DNS update IP
+- Password-based authentication (same as DNS update service)
+- Cookie-based session management (24-hour expiry)
+- API access with password parameter
+
 **Features:**
 - Real-time statistics dashboard
 - Search by IP address, domain, or error message
@@ -302,6 +309,7 @@ The service will start on `http://0.0.0.0:5000` by default.
 - Pagination support
 - Mobile-responsive design
 - Auto-refresh every 30 seconds
+- Secure logout functionality
 
 #### DNS Logs API
 **GET** `/api/logs`
@@ -344,6 +352,8 @@ The service will start on `http://0.0.0.0:5000` by default.
 #### DNS Statistics API
 **GET** `/api/stats`
 
+**Authentication:** Same as logs API - requires password or valid session
+
 **Response:**
 ```json
 {
@@ -361,6 +371,27 @@ The service will start on `http://0.0.0.0:5000` by default.
     }
 }
 ```
+
+#### Authentication Endpoints
+
+**Login Page**
+**GET/POST** `/login`
+
+**Description:** Web-based login interface for accessing logs and statistics.
+
+**Usage:**
+- Visit `/login` in your browser
+- Enter the same password used for DNS updates
+- Login is remembered for 24 hours via secure cookies
+
+**Logout Endpoint**
+**POST** `/logout`
+
+**Description:** Securely logout and clear authentication cookies.
+
+**Usage:**
+- Call via JavaScript: `fetch('/logout', {method: 'POST'})`
+- Automatically redirects to login page
 
 ## Example Usage
 
@@ -450,6 +481,18 @@ The logging test script will:
 - Check the web interface accessibility
 - Display comprehensive usage instructions
 
+### Testing Authentication
+```bash
+python test_auth.py
+```
+
+The authentication test script will:
+- Test access control for logs and stats pages
+- Verify login/logout functionality
+- Test cookie-based session management
+- Validate API access with password parameter
+- Test automatic access from last successful DNS update IP
+
 ### Viewing DNS Logs
 
 #### Web Interface
@@ -458,11 +501,18 @@ The logging test script will:
 http://localhost:5000/logs
 ```
 
+**Authentication Features:**
+- **Automatic Access**: IP addresses that successfully updated DNS records can access logs without password
+- **Password Authentication**: Use the same password as DNS update service
+- **Session Management**: Login remembered for 24 hours via secure cookies
+- **API Access**: Use password parameter for programmatic access
+
 **Features:**
 - Real-time statistics dashboard
 - Search and filter capabilities
 - Mobile-responsive design
 - Auto-refresh every 30 seconds
+- Secure logout functionality
 
 #### API Access
 ```bash

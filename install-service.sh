@@ -121,6 +121,9 @@ ALLOWED_SUBNETS=
 ENABLE_PASSWORD_AUTH=true
 AUTH_PASSWORD=your_secure_password_here
 
+# Flask Secret Key (Recommended for production)
+FLASK_SECRET_KEY=your_secure_secret_key_here
+
 # Service Configuration (Optional)
 FLASK_HOST=0.0.0.0
 FLASK_PORT=5000

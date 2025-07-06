@@ -20,6 +20,7 @@ services:
       # Password authentication configuration
       - ENABLE_PASSWORD_AUTH=${ENABLE_PASSWORD_AUTH:-true}
       - AUTH_PASSWORD=${AUTH_PASSWORD:-}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-dns-update-secret-key-change-in-production}
       # AWS credentials should be set via environment variables or mounted secrets
       # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}

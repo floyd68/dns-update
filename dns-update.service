@@ -38,6 +38,7 @@ Environment=ALLOWED_IPS=
 Environment=ALLOWED_SUBNETS=
 Environment=ENABLE_PASSWORD_AUTH=true
 Environment=AUTH_PASSWORD=
+Environment=FLASK_SECRET_KEY=
 Environment=FLASK_HOST=0.0.0.0
 Environment=FLASK_PORT=5000
 Environment=FLASK_DEBUG=false

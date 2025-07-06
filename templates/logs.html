@@ -33,6 +33,7 @@
             margin-bottom: 30px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             text-align: center;
+            position: relative;
         }
 
         .header h1 {
@@ -45,6 +46,26 @@
         .header p {
             color: #7f8c8d;
             font-size: 1.1rem;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
         }
 
         .stats-grid {
@@ -493,6 +514,9 @@
 <body>
     <div class="container">
         <div class="header">
+            <button class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
             <h1><i class="fas fa-server"></i> DNS Update Logs</h1>
             <p>Monitor and track all DNS record updates in real-time</p>
         </div>
@@ -738,6 +762,28 @@
             setInterval(() => {
                 loadLogs(false); // Don't show loading spinner for auto-refresh
             }, 30000);
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch('/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    // Redirect to login page
+                    window.location.href = '/login';
+                } else {
+                    console.error('Logout failed');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Redirect to login page anyway
+                window.location.href = '/login';
+            }
         }
     </script>
 </body>

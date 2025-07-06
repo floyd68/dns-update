@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, make_response, session, redirect
 import boto3
 import os
 import sys
@@ -8,12 +8,15 @@ import re
 import json
 from datetime import datetime, timedelta, timezone
 from config import Config
+import hashlib
+import hmac
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, Config.LOG_LEVEL))
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+app.secret_key = Config.FLASK_SECRET_KEY
 
 # Validate AWS configuration on startup
 try:
@@ -210,6 +213,126 @@ def get_auth_method(request, password_from_body=None):
     else:
         return None
 
+def get_last_successful_dns_ip():
+    """
+    Get the IP address from the last successful DNS update.
+    Returns None if no successful updates found.
+    """
+    try:
+        logs = read_logs_from_file()
+        # Find the most recent successful update
+        for log in sorted(logs, key=lambda x: x.get('timestamp', ''), reverse=True):
+            if log.get('status') == 'success':
+                return log.get('ip_address')
+        return None
+    except Exception as e:
+        logger.error(f"Error getting last successful DNS IP: {e}")
+        return None
+
+def create_auth_cookie(password):
+    """
+    Create a secure authentication cookie.
+    """
+    # Create a hash of the password with a timestamp
+    timestamp = str(int(datetime.now().timestamp()))
+    data = f"{password}:{timestamp}"
+    signature = hmac.new(
+        app.secret_key.encode('utf-8'),
+        data.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return f"{data}:{signature}"
+
+def validate_auth_cookie(cookie_value):
+    """
+    Validate an authentication cookie.
+    """
+    if not cookie_value:
+        return False
+    
+    try:
+        # Split the cookie value
+        parts = cookie_value.split(':')
+        if len(parts) != 3:
+            return False
+        
+        password, timestamp, signature = parts
+        
+        # Check if cookie is not too old (24 hours)
+        cookie_time = int(timestamp)
+        current_time = int(datetime.now().timestamp())
+        if current_time - cookie_time > 86400:  # 24 hours
+            return False
+        
+        # Verify signature
+        data = f"{password}:{timestamp}"
+        expected_signature = hmac.new(
+            app.secret_key.encode('utf-8'),
+            data.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        
+        return hmac.compare_digest(signature, expected_signature) and password == Config.AUTH_PASSWORD
+    except Exception as e:
+        logger.error(f"Error validating auth cookie: {e}")
+        return False
+
+def authenticate_logs_access():
+    """
+    Authenticate access to logs and stats pages.
+    Returns (is_authenticated, response) tuple.
+    """
+    # Check if authentication is disabled
+    if not Config.ENABLE_PASSWORD_AUTH:
+        return True, None
+    
+    # Check if no password is configured
+    if not Config.AUTH_PASSWORD:
+        return True, None
+    
+    # Get requester IP
+    requester_ip = get_requester_ip()
+    
+    # Check if requester IP is the last successful DNS update IP
+    last_successful_ip = get_last_successful_dns_ip()
+    if last_successful_ip and requester_ip == last_successful_ip:
+        return True, None
+    
+    # Check for valid authentication cookie
+    auth_cookie = request.cookies.get('dns_auth')
+    if auth_cookie and validate_auth_cookie(auth_cookie):
+        return True, None
+    
+    # Check for password in request (for API access)
+    password = request.args.get('password') or request.headers.get('X-Auth-Password')
+    if password and password == Config.AUTH_PASSWORD:
+        return True, None
+    
+    # Authentication failed
+    return False, None
+
+def require_auth(f):
+    """
+    Decorator to require authentication for log and stat pages.
+    """
+    def decorated_function(*args, **kwargs):
+        is_authenticated, response = authenticate_logs_access()
+        
+        if not is_authenticated:
+            # Return authentication required response
+            if request.path.startswith('/api/'):
+                # API endpoint - return JSON
+                return jsonify({'error': 'Authentication required'}), 401
+            else:
+                # Web page - return login page
+                return render_template('login.html'), 401
+        
+        return f(*args, **kwargs)
+    
+    decorated_function.__name__ = f.__name__
+    return decorated_function
+
 def read_logs_from_single_file(file_path):
     """
     Read logs from a single file.
@@ -382,12 +505,41 @@ def health_check():
     """Health check endpoint."""
     return jsonify({'status': 'healthy', 'service': 'DNS Update Service'}), 200
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login endpoint for logs and stats access."""
+    if request.method == 'GET':
+        return render_template('login.html')
+    
+    # Handle POST request
+    password = request.form.get('password')
+    
+    if not password or password != Config.AUTH_PASSWORD:
+        return render_template('login.html', error='Invalid password'), 401
+    
+    # Create authentication cookie
+    auth_cookie = create_auth_cookie(password)
+    
+    # Redirect to logs page with cookie
+    response = make_response(redirect('/logs'))
+    response.set_cookie('dns_auth', auth_cookie, max_age=86400, httponly=True, secure=False, samesite='Lax')
+    return response
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    """Logout endpoint."""
+    response = make_response(jsonify({'success': True}))
+    response.delete_cookie('dns_auth')
+    return response
+
 @app.route('/logs', methods=['GET'])
+@require_auth
 def logs_page():
     """DNS logs web interface."""
     return render_template('logs.html')
 
 @app.route('/api/logs', methods=['GET'])
+@require_auth
 def api_logs():
     """API endpoint for retrieving DNS logs with filtering and pagination."""
     try:
@@ -461,6 +613,7 @@ def api_logs():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/stats', methods=['GET'])
+@require_auth
 def api_stats():
     """API endpoint for getting DNS update statistics."""
     try:
