@@ -154,6 +154,11 @@
             padding: 30px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             overflow: hidden;
+            transition: opacity 0.2s ease;
+        }
+        
+        .logs-container.updating {
+            opacity: 0.8;
         }
 
         .logs-table {
@@ -575,15 +580,25 @@
             // Refresh button
             document.getElementById('refresh-btn').addEventListener('click', function() {
                 this.querySelector('i').classList.add('fa-spin');
-                loadLogs().finally(() => {
+                loadLogs(false).finally(() => { // Don't show loading spinner for manual refresh
                     this.querySelector('i').classList.remove('fa-spin');
                 });
             });
         }
 
-        async function loadLogs() {
+        async function loadLogs(showLoading = true) {
             const content = document.getElementById('logs-content');
-            content.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading logs...</div>';
+            const container = document.querySelector('.logs-container');
+            
+            // Add subtle visual feedback for updates
+            if (!showLoading) {
+                container.classList.add('updating');
+            }
+            
+            // Only show loading spinner if explicitly requested or if content is empty
+            if (showLoading || content.children.length === 0) {
+                content.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading logs...</div>';
+            }
 
             try {
                 const params = new URLSearchParams({
@@ -605,6 +620,9 @@
                 }
             } catch (error) {
                 content.innerHTML = '<div class="no-logs"><i class="fas fa-exclamation-triangle"></i><p>Failed to load logs. Please try again.</p></div>';
+            } finally {
+                // Remove updating class
+                container.classList.remove('updating');
             }
         }
 
@@ -718,7 +736,7 @@
         function startAutoRefresh() {
             // Auto-refresh every 30 seconds
             setInterval(() => {
-                loadLogs();
+                loadLogs(false); // Don't show loading spinner for auto-refresh
             }, 30000);
         }
     </script>
