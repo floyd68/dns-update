@@ -46,9 +46,10 @@ def get_requester_ip():
     Get the IP address of the requester, handling proxy headers.
     """
     # Check for proxy headers first (X-Forwarded-For, X-Real-IP)
-    if request.headers.get('X-Forwarded-For'):
+    x_forwarded_for = request.headers.get('X-Forwarded-For')
+    if x_forwarded_for:
         # X-Forwarded-For can contain multiple IPs, take the first one
-        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+        return x_forwarded_for.split(',')[0].strip()
     elif request.headers.get('X-Real-IP'):
         return request.headers.get('X-Real-IP')
     else:
@@ -347,6 +348,9 @@ def update_a_record(hosted_zone_id, domain_name, ip_address):
     """
     Update Route53 A record with new IP address.
     """
+    if route53_client is None:
+        raise ValueError("AWS Route53 client not available")
+    
     # Prepare the change batch
     change_batch = {
         'Changes': [
