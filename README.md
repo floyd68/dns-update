@@ -819,18 +819,7 @@ sudo certbot certificates
 sudo certbot renew
 ```
 
-#### Protocol Switching
 
-```bash
-# Check current mode
-sudo ./nginx/switch-protocol.sh status
-
-# Switch to HTTP mode
-sudo ./nginx/switch-protocol.sh http
-
-# Switch to HTTPS mode
-sudo ./nginx/switch-protocol.sh https
-```
 
 #### Uninstallation
 
