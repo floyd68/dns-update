@@ -210,18 +210,15 @@ def get_auth_method(request, password_from_body=None):
     else:
         return None
 
-def read_logs_from_file():
+def read_logs_from_single_file(file_path):
     """
-    Read logs from file with fallback logic.
+    Read logs from a single file.
     Returns a list of log entries.
     """
     logs = []
-    log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
-    
-    # Try to read from the configured log file
-    if os.path.exists(log_file):
+    if os.path.exists(file_path):
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 for line in f:
                     try:
                         log_entry = json.loads(line.strip())
@@ -229,22 +226,23 @@ def read_logs_from_file():
                     except json.JSONDecodeError:
                         continue  # Skip invalid lines
         except (IOError, OSError) as e:
-            logger.warning(f"Failed to read from {log_file}: {e}")
+            logger.warning(f"Failed to read from {file_path}: {e}")
+    return logs
+
+def read_logs_from_file():
+    """
+    Read logs from file with fallback logic.
+    Returns a list of log entries.
+    """
+    log_file = os.environ.get('DNS_LOG_FILE', 'dns_updates.log')
+    
+    # Try to read from the configured log file
+    logs = read_logs_from_single_file(log_file)
     
     # If no logs found in configured file, try /tmp/dns_updates.log
     if not logs and log_file != '/tmp/dns_updates.log':
         tmp_log_file = '/tmp/dns_updates.log'
-        if os.path.exists(tmp_log_file):
-            try:
-                with open(tmp_log_file, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        try:
-                            log_entry = json.loads(line.strip())
-                            logs.append(log_entry)
-                        except json.JSONDecodeError:
-                            continue
-            except (IOError, OSError) as e:
-                logger.warning(f"Failed to read from {tmp_log_file}: {e}")
+        logs = read_logs_from_single_file(tmp_log_file)
     
     return logs
 
