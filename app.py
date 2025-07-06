@@ -256,7 +256,7 @@ def update_dns():
     Domain name and hosted zone are pre-configured.
     """
     try:
-        # Get request data - support both RouterOS format and plain IP format
+        # Get request data - support both combined format and plain IP format
         request_data = request.get_data(as_text=True).strip()
         
         if not request_data:
